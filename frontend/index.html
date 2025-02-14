@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gilded Promise - Product List</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <!-- New polished inline SVG logo -->
+        <svg width="60" height="60" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#E6CA97;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#E1A4A9;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#D9D9D9;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <!-- Diamond shape -->
+          <polygon points="50,10 90,50 50,90 10,50" fill="url(#logoGradient)" />
+          <text x="50%" y="58%" text-anchor="middle" fill="#fff" font-size="28" font-family="AvenirHeavy" dy=".3em">GP</text>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>Gilded Promise</h1>
+        <h2>Product List</h2>
+      </div>
+    </header>
+    
+    <div class="main-content">
+      <!-- Filter Sidebar -->
+      <aside class="filter-sidebar">
+        <h2>Filters</h2>
+        <div class="filter-section">
+          <label for="minPrice">Min Price (USD)</label>
+          <input type="number" id="minPrice" placeholder="e.g. 300" step="0.01">
+        </div>
+        <div class="filter-section">
+          <label for="maxPrice">Max Price (USD)</label>
+          <input type="number" id="maxPrice" placeholder="e.g. 600" step="0.01">
+        </div>
+        <div class="filter-section">
+          <label for="minRating">Min Rating (0–5)</label>
+          <input type="number" id="minRating" placeholder="0" step="0.1" min="0" max="5">
+        </div>
+        <div class="filter-section">
+          <label for="maxRating">Max Rating (0–5)</label>
+          <input type="number" id="maxRating" placeholder="5" step="0.1" min="0" max="5">
+        </div>
+        <div class="filter-section">
+          <label for="orderBy">Order By:</label>
+          <select id="orderBy">
+            <option value="">Default</option>
+            <option value="price">Price (Low to High)</option>
+            <option value="rating">Rating (High to Low)</option>
+            <option value="ratio">Rating/Price Ratio (High to Low)</option>
+          </select>
+        </div>
+        <button id="filterButton">Apply Filters</button>
+      </aside>
+
+      <!-- Product Section -->
+      <section class="product-section">
+        <!-- Loading Overlay -->
+        <div id="loading">Loading...</div>
+        <!-- Carousel Container -->
+        <div id="product-carousel" class="carousel">
+          <!-- Product cards injected by script.js -->
+        </div>
+        <!-- Carousel Navigation -->
+        <div class="carousel-nav">
+          <button id="prev" class="arrow-btn">&#10094;</button>
+          <button id="next" class="arrow-btn">&#10095;</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

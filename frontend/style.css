@@ -1,0 +1,285 @@
+/* Import local fonts */
+@font-face {
+  font-family: 'AvenirBook';
+  src: url('./fonts/Avenir-Book.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'AvenirHeavy';
+  src: url('./fonts/Avenir-Heavy.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MontserratRegular';
+  src: url('./fonts/Montserrat-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MontserratMedium';
+  src: url('./fonts/Montserrat-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+/* Header Styling */
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.logo {
+  width: 60px;
+  height: 60px;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.header-text h1 {
+  margin: 0;
+  font-family: 'AvenirHeavy', sans-serif;
+  font-size: 28px;
+}
+
+.header-text h2 {
+  margin: 0;
+  font-family: 'AvenirBook', sans-serif;
+  font-size: 16px;
+  color: #666;
+}
+
+/* Global Styles */
+body {
+  margin: 0;
+  padding: 20px;
+  background: #f8f8f8;
+  font-family: 'AvenirBook', sans-serif;
+}
+
+.container {
+  max-width: 1200px;
+  margin: auto;
+}
+
+h1 {
+  font-family: 'AvenirHeavy', sans-serif;
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+/* Main Content Layout */
+.main-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* Filter Sidebar */
+.filter-sidebar {
+  flex: 0 0 250px;
+  background: #fff;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-family: 'AvenirBook', sans-serif;
+}
+
+.filter-sidebar h2 {
+  font-family: 'AvenirHeavy', sans-serif;
+  font-size: 20px;
+  margin-bottom: 15px;
+}
+
+.filter-section {
+  margin-bottom: 15px;
+}
+
+.filter-section label {
+  display: block;
+  font-family: 'MontserratRegular', sans-serif;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.filter-section input,
+.filter-section select {
+  width: 100%;
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+#filterButton {
+  width: 100%;
+  padding: 10px;
+  font-family: 'MontserratMedium', sans-serif;
+  font-size: 14px;
+  background-color: #FFD700; /* Bold yellow */
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+#filterButton:hover {
+  background-color: #FFC107;
+}
+
+/* Product Section */
+.product-section {
+  flex: 1;
+  max-width: 900px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Loading Overlay */
+#loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  color: #333;
+  font-family: 'MontserratMedium', sans-serif;
+  font-size: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+/* Carousel Container */
+.carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding-bottom: 10px;
+}
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+/* Product Card */
+.product-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin: 10px;
+  padding: 15px;
+  width: 300px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.product-image {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.product-title {
+  font-family: 'AvenirBook', sans-serif;
+  font-size: 15px;
+  margin: 5px 0;
+}
+
+.product-price {
+  font-family: 'MontserratMedium', sans-serif;
+  font-size: 15px;
+  margin: 5px 0;
+  color: #333;
+}
+
+.product-color-label {
+  font-family: 'MontserratRegular', sans-serif;
+  font-size: 15px;
+  margin: 5px 0;
+  color: #666;
+}
+
+.product-rating {
+  font-family: 'AvenirBook', sans-serif;
+  font-size: 12px;
+  margin: 5px 0;
+  color: #333;
+}
+
+/* Style the stars in gold */
+.star {
+  color: #E6CA97;
+  font-size: 16px;
+  margin: 0 1px;
+}
+
+/* Larger color swatch buttons */
+.color-picker {
+  margin-top: 10px;
+}
+
+.color-picker button {
+  border: 1px solid #ccc;
+  width: 45px;
+  height: 45px;
+  margin: 0 5px;
+  cursor: pointer;
+  border-radius: 50%;
+  outline: none;
+}
+
+/* Carousel Navigation with Floating Arrows */
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  padding: 0 10px;
+}
+
+.arrow-btn {
+  pointer-events: auto;
+  font-family: 'MontserratMedium', sans-serif;
+  font-size: 26px;
+  padding: 10px 15px;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.arrow-btn:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* No products found message styling */
+.no-products {
+  font-family: 'AvenirBook', sans-serif;
+  font-size: 16px;
+  color: #666;
+  text-align: center;
+  margin: 20px;
+  padding: 20px;
+}
