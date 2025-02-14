@@ -2,10 +2,11 @@
  * server.js
  * --------------------------------------------------------------------------
  * Node/Express backend that:
- * - Fetches live gold price from GoldAPI.
- * - Calculates product prices from popularityScore & weight.
- * - Returns products with optional filtering by price (USD) and rating (0-5).
- * - Supports ordering by price, rating, or rating/price ratio.
+ * - Fetches live gold price from GoldAPI once and caches it.
+ * - Updates the gold price every 5 minutes.
+ * - Calculates product prices using the cached gold price.
+ * - Returns products with optional filtering by price (USD) and rating (0-5),
+ *   as well as ordering by price, rating, or rating/price ratio.
  *
  * Note: Product prices are rounded to the nearest whole number.
  ****************************************************************************/
@@ -17,29 +18,27 @@ const products = require("./products.json"); // Your product data file
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Enable CORS so requests from your frontend (port 8081) are allowed
 app.use(cors());
 
 // Global variable to store the latest gold price per gram in USD
 let goldPrice = 0;
 
-// Function to update the gold price using GoldAPI
+// Function to update the gold price using GoldAPI with caching
 async function updateGoldPrice() {
   try {
     const response = await axios.get("https://www.goldapi.io/api/XAU/USD", {
       headers: {
-        "x-access-token": "goldapi-kj5619m75dybjm-io", // Replace with your updated API key
+        "x-access-token": "YOUR_UPDATED_API_KEY", // Replace with your updated API key
         "Content-Type": "application/json",
       },
     });
-    // GoldAPI returns price per troy ounce; convert to price per gram
+    // GoldAPI returns price per troy ounce; convert to per gram
     const pricePerOunce = response.data.price;
     goldPrice = pricePerOunce / 31.1035;
     console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
   } catch (err) {
     console.error("Error fetching gold price:", err.message);
-    // If goldPrice is already set from a previous successful call, use it;
-    // otherwise, fall back to a default value (e.g., 92.67 USD)
+    // Use previously cached value, or fall back to default if not set
     if (!goldPrice) {
       goldPrice = 92.67;
     }
@@ -49,11 +48,9 @@ async function updateGoldPrice() {
   }
 }
 
-// Middleware to update gold price before each request
-app.use(async (req, res, next) => {
-  await updateGoldPrice();
-  next();
-});
+// Initial fetch and schedule periodic updates every 5 minutes (300,000 ms)
+updateGoldPrice();
+setInterval(updateGoldPrice, 300000);
 
 // GET endpoint to return products with optional filtering and ordering
 app.get("/api/products", (req, res) => {
@@ -66,6 +63,7 @@ app.get("/api/products", (req, res) => {
       (product.popularityScore + 1) * product.weight * goldPrice;
     // Convert popularityScore (0–1) to rating out of 5
     const rating = (product.popularityScore * 5).toFixed(1);
+
     return {
       ...product,
       price: Math.round(computedPrice),
@@ -73,7 +71,7 @@ app.get("/api/products", (req, res) => {
     };
   });
 
-  // Apply filtering
+  // Apply filtering if query parameters are provided
   if (minPrice) result = result.filter((p) => p.price >= parseFloat(minPrice));
   if (maxPrice) result = result.filter((p) => p.price <= parseFloat(maxPrice));
   if (minRating)
