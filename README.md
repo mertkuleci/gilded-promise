@@ -71,8 +71,6 @@ The project is maintained with Git for version control. You can review the commi
 
 [https://github.com/mertkuleci/gilded-promise](https://github.com/mertkuleci/gilded-promise/tree/master)
 
-# License
-This project is licensed under the MIT License.
 
 # Acknowledgments
 Playwright: For the headless browser automation and scraping capabilities.
