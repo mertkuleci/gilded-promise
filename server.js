@@ -34,7 +34,7 @@ async function updateGoldPrice() {
   try {
     // Launch Puppeteer in headless mode with some common flags
     browser = await puppeteer.launch({
-      headless: true,
+      headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
