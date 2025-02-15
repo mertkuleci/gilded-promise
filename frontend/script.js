@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     try {
       const response = await fetch(
-        "https://gilded-promise.onrender.com" + query
+        "https://gilded-promise.onrender.com/api/products" + query
       );
       const products = await response.json();
       renderProducts(products);
