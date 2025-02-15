@@ -1,15 +1,3 @@
-/****************************************************************************
- * server.js
- * --------------------------------------------------------------------------
- * Node/Express backend that:
- * - Scrapes the live gold price (USD per gram) from Kitco using Playwright.
- * - Caches the gold price and updates it every 1 minute.
- * - Calculates product prices using the cached gold price.
- * - Returns products with optional filtering by price (USD) and rating (0-5),
- *   as well as ordering by price, rating, or rating/price ratio.
- *
- * Note: Product prices are rounded to the nearest whole number.
- ****************************************************************************/
 const express = require("express");
 const cors = require("cors");
 const products = require("./products.json"); // Your product data file
@@ -22,13 +10,9 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
-// Global variable to store the latest gold price per gram in USD
+// Global variable
 let goldPrice = 0;
 
-/**
- * Uses Playwright to launch a headless browser, navigates to Kitco's gold charts page,
- * finds the list item containing "gram", and extracts the gold price.
- */
 async function updateGoldPrice() {
   let browser;
   try {
@@ -127,7 +111,7 @@ app.get("/api/products", (req, res) => {
     };
   });
 
-  // Apply filtering if query parameters are provided
+  // Apply filtering
   if (minPrice) result = result.filter((p) => p.price >= parseFloat(minPrice));
   if (maxPrice) result = result.filter((p) => p.price <= parseFloat(maxPrice));
   if (minRating)
@@ -135,7 +119,7 @@ app.get("/api/products", (req, res) => {
   if (maxRating)
     result = result.filter((p) => p.rating <= parseFloat(maxRating));
 
-  // Apply ordering if provided
+  // Apply ordering
   if (sortBy) {
     if (sortBy === "price") {
       result.sort((a, b) => a.price - b.price);

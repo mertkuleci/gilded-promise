@@ -1,4 +1,4 @@
-/* Import local fonts */
+
 @font-face {
   font-family: 'AvenirBook';
   src: url('./fonts/Avenir-Book.ttf') format('truetype');
@@ -245,7 +245,7 @@ h1 {
   outline: none;
 }
 
-/* Carousel Navigation with Floating Arrows */
+/* Carousel Navigation */
 .carousel-nav {
   position: absolute;
   top: 50%;
@@ -274,7 +274,6 @@ h1 {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
-/* No products found message styling */
 .no-products {
   font-family: 'AvenirBook', sans-serif;
   font-size: 16px;

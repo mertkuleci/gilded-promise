@@ -1,11 +1,3 @@
-/****************************************************************************
- * script.js
- * --------------------------------------------------------------------------
- * Fetches products from the backend, creates product cards, handles color
- * switching, implements carousel navigation, and applies filter and ordering
- * settings (including rating 0–5). Includes a loading overlay during fetch
- * and displays a message if no products are found.
- ****************************************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
   const productContainer = document.getElementById("product-carousel");
   const prevButton = document.getElementById("prev");
@@ -21,7 +13,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadingOverlay.style.display = "none";
   }
 
-  // Helper: Convert numeric rating (e.g., 4.3) to star symbols with colored spans
   function getStarRating(rating) {
     const fullStars = Math.floor(rating);
     const halfStar = rating - fullStars >= 0.5;
@@ -40,7 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return stars;
   }
 
-  // Render products into the carousel
+  // Render products
   function renderProducts(products) {
     const carouselNav = document.querySelector(".carousel-nav");
     productContainer.innerHTML = "";
@@ -93,7 +84,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Fetch products from backend with optional filters and ordering
+  // Fetch products
   async function fetchProducts(filters = {}) {
     showLoading();
     let query = "";
@@ -108,7 +99,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     try {
       const response = await fetch(
-        "https://gilded-promise.onrender.com/api/products" + query
+        "https://gilded-promise-2.onrender.com/api/products" + query
       );
       const products = await response.json();
       renderProducts(products);
