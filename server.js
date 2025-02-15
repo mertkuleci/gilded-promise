@@ -2,7 +2,7 @@
  * server.js
  * --------------------------------------------------------------------------
  * Node/Express backend that:
- * - Scrapes the live gold price (USD per gram) from Kitco using Puppeteer.
+ * - Scrapes the live gold price (USD per gram) from Kitco using Playwright.
  * - Caches the gold price and updates it every 1 minute.
  * - Calculates product prices using the cached gold price.
  * - Returns products with optional filtering by price (USD) and rating (0-5),
@@ -14,8 +14,8 @@ const express = require("express");
 const cors = require("cors");
 const products = require("./products.json"); // Your product data file
 
-// Require Puppeteer
-const puppeteer = require("puppeteer");
+// Use Playwright instead of Puppeteer
+const { chromium } = require("playwright");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,49 +25,45 @@ app.use(cors());
 // Global variable to store the latest gold price per gram in USD
 let goldPrice = 0;
 
-// Set executablePath from env variable or default to Render's installed Chrome path
-const chromeExecutablePath =
-  process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/google-chrome-stable";
-
 /**
- * Uses Puppeteer to launch a headless Chrome browser, navigates to Kitco,
- * finds the list item containing "gram", and extracts the gold price.
+ * Uses Playwright to launch a headless Chromium browser,
+ * navigates to Kitco's gold charts page, finds the list item containing "gram",
+ * and extracts the gold price.
  */
 async function updateGoldPrice() {
   let browser;
   try {
-    // Launch Puppeteer with explicit executable path
-    browser = await puppeteer.launch({
+    browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: chromeExecutablePath,
     });
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
     await page.goto("https://www.kitco.com/charts/gold", {
-      waitUntil: "networkidle2",
+      waitUntil: "networkidle",
       timeout: 60000,
     });
 
-    // Wait for any <li> element with class "flex items-center" to appear
+    // Wait for at least one li element with the target class to appear
     await page.waitForSelector("li.flex.items-center", { timeout: 10000 });
-    const liHandles = await page.$$("li.flex.items-center");
+
+    // Get all matching li elements
+    const liElements = await page.$$("li.flex.items-center");
 
     let targetHandle = null;
-    // Loop through li elements to find one whose child p element with
-    // class "CommodityPrice_priceName__Ehicd" includes "gram"
-    for (const li of liHandles) {
+    // Loop through each li element to find one where the price name includes "gram"
+    for (const li of liElements) {
       try {
         const priceNameEl = await li.$("p.CommodityPrice_priceName__Ehicd");
         if (!priceNameEl) continue;
-        const priceName = (
-          await page.evaluate((el) => el.innerText, priceNameEl)
-        ).toLowerCase();
-        if (priceName.includes("gram")) {
+        const priceName = await priceNameEl.innerText();
+        if (priceName.toLowerCase().includes("gram")) {
           targetHandle = li;
           break;
         }
       } catch (e) {
-        // Skip this element if error occurs
+        // Ignore errors and continue
       }
     }
 
@@ -80,10 +76,11 @@ async function updateGoldPrice() {
       "p.CommodityPrice_convertPrice__5Addh"
     );
     if (!priceElem) {
-      throw new Error("Could not find price element in the 'gram' li");
+      throw new Error("Could not find price element in the target li");
     }
-    let priceStr = await page.evaluate((el) => el.innerText, priceElem);
-    priceStr = priceStr.trim().replace(",", ".");
+
+    let priceStr = await priceElem.innerText();
+    priceStr = priceStr.trim().replace(",", "."); // Convert comma to dot
     const price = parseFloat(priceStr);
     if (isNaN(price)) {
       throw new Error("Could not parse gold price");
@@ -112,22 +109,31 @@ setInterval(updateGoldPrice, 60000);
 // GET endpoint to return products with optional filtering and ordering
 app.get("/api/products", (req, res) => {
   const { minPrice, maxPrice, minRating, maxRating, sortBy } = req.query;
+
+  // Map products to include calculated price and rating
   let result = products.map((product) => {
+    // Price formula: (popularityScore + 1) * weight * goldPrice
     const computedPrice =
       (product.popularityScore + 1) * product.weight * goldPrice;
+    // Convert popularityScore (0–1) to rating out of 5
     const rating = (product.popularityScore * 5).toFixed(1);
+
     return {
       ...product,
       price: Math.round(computedPrice),
       rating: parseFloat(rating),
     };
   });
+
+  // Apply filtering if query parameters are provided
   if (minPrice) result = result.filter((p) => p.price >= parseFloat(minPrice));
   if (maxPrice) result = result.filter((p) => p.price <= parseFloat(maxPrice));
   if (minRating)
     result = result.filter((p) => p.rating >= parseFloat(minRating));
   if (maxRating)
     result = result.filter((p) => p.rating <= parseFloat(maxRating));
+
+  // Apply ordering if provided
   if (sortBy) {
     if (sortBy === "price") {
       result.sort((a, b) => a.price - b.price);
@@ -137,6 +143,7 @@ app.get("/api/products", (req, res) => {
       result.sort((a, b) => b.rating / b.price - a.rating / a.price);
     }
   }
+
   res.json(result);
 });
 
