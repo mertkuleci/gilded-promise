@@ -14,7 +14,7 @@ const express = require("express");
 const cors = require("cors");
 const products = require("./products.json"); // Your product data file
 
-// Use Playwright instead of Puppeteer
+// Use Playwright for scraping
 const { chromium } = require("playwright");
 
 const app = express();
@@ -26,13 +26,13 @@ app.use(cors());
 let goldPrice = 0;
 
 /**
- * Uses Playwright to launch a headless Chromium browser,
- * navigates to Kitco's gold charts page, finds the list item containing "gram",
- * and extracts the gold price.
+ * Uses Playwright to launch a headless browser, navigates to Kitco's gold charts page,
+ * finds the list item containing "gram", and extracts the gold price.
  */
 async function updateGoldPrice() {
   let browser;
   try {
+    // Launch headless Chromium (the Playwright image has all dependencies)
     browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -40,30 +40,32 @@ async function updateGoldPrice() {
     const context = await browser.newContext();
     const page = await context.newPage();
 
+    // Navigate to Kitco's gold charts page
     await page.goto("https://www.kitco.com/charts/gold", {
       waitUntil: "networkidle",
       timeout: 60000,
     });
 
-    // Wait for at least one li element with the target class to appear
+    // Wait for at least one <li> element with class "flex items-center" to appear
     await page.waitForSelector("li.flex.items-center", { timeout: 10000 });
 
-    // Get all matching li elements
+    // Get all matching <li> elements
     const liElements = await page.$$("li.flex.items-center");
 
     let targetHandle = null;
-    // Loop through each li element to find one where the price name includes "gram"
+    // Loop over each <li> to find one where a child <p> with class "CommodityPrice_priceName__Ehicd"
+    // contains the word "gram" (case-insensitive)
     for (const li of liElements) {
       try {
         const priceNameEl = await li.$("p.CommodityPrice_priceName__Ehicd");
         if (!priceNameEl) continue;
-        const priceName = await priceNameEl.innerText();
-        if (priceName.toLowerCase().includes("gram")) {
+        const priceName = (await priceNameEl.innerText()).toLowerCase();
+        if (priceName.includes("gram")) {
           targetHandle = li;
           break;
         }
       } catch (e) {
-        // Ignore errors and continue
+        // Ignore errors for this element
       }
     }
 
@@ -71,14 +73,13 @@ async function updateGoldPrice() {
       throw new Error("Could not locate target element containing 'gram'");
     }
 
-    // Within the target li, find the price element
+    // Within the target <li>, find the <p> element with class "CommodityPrice_convertPrice__5Addh"
     const priceElem = await targetHandle.$(
       "p.CommodityPrice_convertPrice__5Addh"
     );
     if (!priceElem) {
-      throw new Error("Could not find price element in the target li");
+      throw new Error("Could not find price element in the target <li>");
     }
-
     let priceStr = await priceElem.innerText();
     priceStr = priceStr.trim().replace(",", "."); // Convert comma to dot
     const price = parseFloat(priceStr);
