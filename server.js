@@ -27,8 +27,7 @@ let goldPrice = 0;
 
 // Set executablePath from env variable or default to Render's installed Chrome path
 const chromeExecutablePath =
-  process.env.PUPPETEER_EXECUTABLE_PATH ||
-  "/opt/render/.cache/puppeteer/chrome/linux-133.0.6943.98/chrome-linux64/chrome";
+  process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/google-chrome-stable";
 
 /**
  * Uses Puppeteer to launch a headless Chrome browser, navigates to Kitco,
