@@ -2,8 +2,8 @@
  * server.js
  * --------------------------------------------------------------------------
  * Node/Express backend that:
- * - Fetches live gold price from GoldAPI once and caches it.
- * - Updates the gold price every 5 minutes.
+ * - Scrapes the live gold price (USD per gram) from Kitco using Selenium WebDriver.
+ * - Caches the gold price and updates it every 1 minute.
  * - Calculates product prices using the cached gold price.
  * - Returns products with optional filtering by price (USD) and rating (0-5),
  *   as well as ordering by price, rating, or rating/price ratio.
@@ -12,8 +12,11 @@
  ****************************************************************************/
 const express = require("express");
 const cors = require("cors");
-const axios = require("axios");
 const products = require("./products.json"); // Your product data file
+
+// Require Selenium WebDriver and Chrome options
+const { Builder, By, until } = require("selenium-webdriver");
+const chrome = require("selenium-webdriver/chrome");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -23,18 +26,74 @@ app.use(cors());
 // Global variable to store the latest gold price per gram in USD
 let goldPrice = 0;
 
-// Function to update the gold price using GoldAPI with caching
+/**
+ * Uses Selenium to launch a headless Chrome browser, navigates to the Kitco gold charts page,
+ * finds the list item with "gram" in its price name, and extracts the gold price.
+ */
 async function updateGoldPrice() {
+  let driver;
   try {
-    const response = await axios.get("https://www.goldapi.io/api/XAU/USD", {
-      headers: {
-        "x-access-token": "YOUR_UPDATED_API_KEY", // Replace with your updated API key
-        "Content-Type": "application/json",
-      },
-    });
-    // GoldAPI returns price per troy ounce; convert to per gram
-    const pricePerOunce = response.data.price;
-    goldPrice = pricePerOunce / 31.1035;
+    // Configure headless Chrome
+    const options = new chrome.Options();
+    options.addArguments(
+      "--headless",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--ignore-certificate-errors"
+    );
+
+    // Build the driver
+    driver = await new Builder()
+      .forBrowser("chrome")
+      .setChromeOptions(options)
+      .build();
+
+    // Navigate to the Kitco gold charts page
+    await driver.get("https://www.kitco.com/charts/gold");
+
+    // Wait for any <li> element with class "flex items-center" to be present
+    await driver.wait(
+      until.elementLocated(By.css("li.flex.items-center")),
+      10000
+    );
+
+    // Get all li elements with class "flex items-center"
+    const liElements = await driver.findElements(
+      By.css("li.flex.items-center")
+    );
+
+    let targetElement = null;
+    // Loop through the li elements and check for one containing "gram" in its price name
+    for (let li of liElements) {
+      try {
+        const priceNameElem = await li.findElement(
+          By.css("p.CommodityPrice_priceName__Ehicd")
+        );
+        const priceName = (await priceNameElem.getText()).toLowerCase();
+        if (priceName.includes("gram")) {
+          targetElement = li;
+          break;
+        }
+      } catch (e) {
+        // If the element is not found in this li, skip it
+      }
+    }
+
+    if (!targetElement) {
+      throw new Error("Could not locate target element containing 'gram'");
+    }
+
+    // Within the target element, find the <p> with class "CommodityPrice_convertPrice__5Addh"
+    const priceElem = await targetElement.findElement(
+      By.css("p.CommodityPrice_convertPrice__5Addh")
+    );
+    let priceStr = await priceElem.getText();
+    priceStr = priceStr.trim().replace(",", "."); // Convert comma to dot
+    const price = parseFloat(priceStr);
+    if (isNaN(price)) {
+      throw new Error("Could not parse gold price");
+    }
+    goldPrice = price;
     console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
   } catch (err) {
     console.error("Error fetching gold price:", err.message);
@@ -45,12 +104,16 @@ async function updateGoldPrice() {
     console.warn(
       `Falling back to latest known gold price: ${goldPrice.toFixed(2)} USD`
     );
+  } finally {
+    if (driver) {
+      await driver.quit();
+    }
   }
 }
 
-// Initial fetch and schedule periodic updates every 5 minutes (300,000 ms)
+// Initial fetch and schedule periodic updates every 1 minute (60,000 ms)
 updateGoldPrice();
-setInterval(updateGoldPrice, 300000);
+setInterval(updateGoldPrice, 60000);
 
 // GET endpoint to return products with optional filtering and ordering
 app.get("/api/products", (req, res) => {
