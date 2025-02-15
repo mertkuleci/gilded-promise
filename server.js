@@ -25,34 +25,37 @@ app.use(cors());
 // Global variable to store the latest gold price per gram in USD
 let goldPrice = 0;
 
+// Set executablePath from env variable or default to Render's installed Chrome path
+const chromeExecutablePath =
+  process.env.PUPPETEER_EXECUTABLE_PATH ||
+  "/opt/render/.cache/puppeteer/chrome/linux-133.0.6943.98/chrome-linux64/chrome";
+
 /**
- * Uses Puppeteer to launch a headless Chrome/Chromium,
- * navigate to Kitco, find the "gram" list item, and extract the gold price.
+ * Uses Puppeteer to launch a headless Chrome browser, navigates to Kitco,
+ * finds the list item containing "gram", and extracts the gold price.
  */
 async function updateGoldPrice() {
   let browser;
   try {
-    // Launch Puppeteer in headless mode with some common flags
+    // Launch Puppeteer with explicit executable path
     browser = await puppeteer.launch({
-      headless: "new",
+      headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: chromeExecutablePath,
     });
     const page = await browser.newPage();
-
-    // Go to the Kitco gold charts page; wait for network to be idle
     await page.goto("https://www.kitco.com/charts/gold", {
       waitUntil: "networkidle2",
       timeout: 60000,
     });
 
-    // Wait for the <li> elements with "flex items-center" to appear
+    // Wait for any <li> element with class "flex items-center" to appear
     await page.waitForSelector("li.flex.items-center", { timeout: 10000 });
-
-    // Grab all matching <li> elements
     const liHandles = await page.$$("li.flex.items-center");
 
     let targetHandle = null;
-    // Loop over each <li> to find one whose child p.CommodityPrice_priceName__Ehicd includes "gram"
+    // Loop through li elements to find one whose child p element with
+    // class "CommodityPrice_priceName__Ehicd" includes "gram"
     for (const li of liHandles) {
       try {
         const priceNameEl = await li.$("p.CommodityPrice_priceName__Ehicd");
@@ -65,35 +68,31 @@ async function updateGoldPrice() {
           break;
         }
       } catch (e) {
-        // ignore errors in this loop
+        // Skip this element if error occurs
       }
     }
 
     if (!targetHandle) {
-      throw new Error("Could not locate <li> element containing 'gram'");
+      throw new Error("Could not locate target element containing 'gram'");
     }
 
-    // Within the target <li>, find the <p> with class "CommodityPrice_convertPrice__5Addh"
+    // Within the target li, find the price element
     const priceElem = await targetHandle.$(
       "p.CommodityPrice_convertPrice__5Addh"
     );
     if (!priceElem) {
-      throw new Error("Could not find price element in the 'gram' <li>");
+      throw new Error("Could not find price element in the 'gram' li");
     }
-
-    // Extract the text and parse as float
     let priceStr = await page.evaluate((el) => el.innerText, priceElem);
     priceStr = priceStr.trim().replace(",", ".");
     const price = parseFloat(priceStr);
     if (isNaN(price)) {
       throw new Error("Could not parse gold price");
     }
-
     goldPrice = price;
     console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
   } catch (err) {
     console.error("Error fetching gold price:", err.message);
-    // If goldPrice is not set, default to 92.67
     if (!goldPrice) {
       goldPrice = 92.67;
     }
@@ -114,31 +113,22 @@ setInterval(updateGoldPrice, 60000);
 // GET endpoint to return products with optional filtering and ordering
 app.get("/api/products", (req, res) => {
   const { minPrice, maxPrice, minRating, maxRating, sortBy } = req.query;
-
-  // Map products to include calculated price and rating
   let result = products.map((product) => {
-    // Price formula: (popularityScore + 1) * weight * goldPrice
     const computedPrice =
       (product.popularityScore + 1) * product.weight * goldPrice;
-    // Convert popularityScore (0–1) to rating out of 5
     const rating = (product.popularityScore * 5).toFixed(1);
-
     return {
       ...product,
       price: Math.round(computedPrice),
       rating: parseFloat(rating),
     };
   });
-
-  // Apply filtering if query parameters are provided
   if (minPrice) result = result.filter((p) => p.price >= parseFloat(minPrice));
   if (maxPrice) result = result.filter((p) => p.price <= parseFloat(maxPrice));
   if (minRating)
     result = result.filter((p) => p.rating >= parseFloat(minRating));
   if (maxRating)
     result = result.filter((p) => p.rating <= parseFloat(maxRating));
-
-  // Apply ordering if provided
   if (sortBy) {
     if (sortBy === "price") {
       result.sort((a, b) => a.price - b.price);
@@ -148,7 +138,6 @@ app.get("/api/products", (req, res) => {
       result.sort((a, b) => b.rating / b.price - a.rating / a.price);
     }
   }
-
   res.json(result);
 });
 
