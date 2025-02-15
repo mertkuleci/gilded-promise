@@ -25,6 +25,7 @@ The header includes a custom logo and brand name ("Gilded Promise") along with a
 To work on the project locally, start by cloning the repository from GitHub:
 
 git clone https://github.com/mertkuleci/gilded-promise.git
+
 cd gilded-promise
 
 
