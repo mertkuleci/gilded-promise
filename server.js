@@ -2,7 +2,7 @@
  * server.js
  * --------------------------------------------------------------------------
  * Node/Express backend that:
- * - Scrapes the live gold price (USD per gram) from Kitco using Selenium WebDriver.
+ * - Scrapes the live gold price (USD per gram) from Kitco using Puppeteer.
  * - Caches the gold price and updates it every 1 minute.
  * - Calculates product prices using the cached gold price.
  * - Returns products with optional filtering by price (USD) and rating (0-5),
@@ -14,9 +14,8 @@ const express = require("express");
 const cors = require("cors");
 const products = require("./products.json"); // Your product data file
 
-// Require Selenium WebDriver and Chrome options
-const { Builder, By, until } = require("selenium-webdriver");
-const chrome = require("selenium-webdriver/chrome");
+// Require Puppeteer
+const puppeteer = require("puppeteer");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,77 +26,74 @@ app.use(cors());
 let goldPrice = 0;
 
 /**
- * Uses Selenium to launch a headless Chrome browser, navigates to the Kitco gold charts page,
- * finds the list item with "gram" in its price name, and extracts the gold price.
+ * Uses Puppeteer to launch a headless Chrome/Chromium,
+ * navigate to Kitco, find the "gram" list item, and extract the gold price.
  */
 async function updateGoldPrice() {
-  let driver;
+  let browser;
   try {
-    // Configure headless Chrome
-    const options = new chrome.Options();
-    options.addArguments(
-      "--headless",
-      "--no-sandbox",
-      "--disable-dev-shm-usage",
-      "--ignore-certificate-errors"
-    );
+    // Launch Puppeteer in headless mode with some common flags
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
 
-    // Build the driver
-    driver = await new Builder()
-      .forBrowser("chrome")
-      .setChromeOptions(options)
-      .build();
+    // Go to the Kitco gold charts page; wait for network to be idle
+    await page.goto("https://www.kitco.com/charts/gold", {
+      waitUntil: "networkidle2",
+      timeout: 60000,
+    });
 
-    // Navigate to the Kitco gold charts page
-    await driver.get("https://www.kitco.com/charts/gold");
+    // Wait for the <li> elements with "flex items-center" to appear
+    await page.waitForSelector("li.flex.items-center", { timeout: 10000 });
 
-    // Wait for any <li> element with class "flex items-center" to be present
-    await driver.wait(
-      until.elementLocated(By.css("li.flex.items-center")),
-      10000
-    );
+    // Grab all matching <li> elements
+    const liHandles = await page.$$("li.flex.items-center");
 
-    // Get all li elements with class "flex items-center"
-    const liElements = await driver.findElements(
-      By.css("li.flex.items-center")
-    );
-
-    let targetElement = null;
-    // Loop through the li elements and check for one containing "gram" in its price name
-    for (let li of liElements) {
+    let targetHandle = null;
+    // Loop over each <li> to find one whose child p.CommodityPrice_priceName__Ehicd includes "gram"
+    for (const li of liHandles) {
       try {
-        const priceNameElem = await li.findElement(
-          By.css("p.CommodityPrice_priceName__Ehicd")
-        );
-        const priceName = (await priceNameElem.getText()).toLowerCase();
+        const priceNameEl = await li.$("p.CommodityPrice_priceName__Ehicd");
+        if (!priceNameEl) continue;
+        const priceName = (
+          await page.evaluate((el) => el.innerText, priceNameEl)
+        ).toLowerCase();
         if (priceName.includes("gram")) {
-          targetElement = li;
+          targetHandle = li;
           break;
         }
       } catch (e) {
-        // If the element is not found in this li, skip it
+        // ignore errors in this loop
       }
     }
 
-    if (!targetElement) {
-      throw new Error("Could not locate target element containing 'gram'");
+    if (!targetHandle) {
+      throw new Error("Could not locate <li> element containing 'gram'");
     }
 
-    // Within the target element, find the <p> with class "CommodityPrice_convertPrice__5Addh"
-    const priceElem = await targetElement.findElement(
-      By.css("p.CommodityPrice_convertPrice__5Addh")
+    // Within the target <li>, find the <p> with class "CommodityPrice_convertPrice__5Addh"
+    const priceElem = await targetHandle.$(
+      "p.CommodityPrice_convertPrice__5Addh"
     );
-    let priceStr = await priceElem.getText();
-    priceStr = priceStr.trim().replace(",", "."); // Convert comma to dot
+    if (!priceElem) {
+      throw new Error("Could not find price element in the 'gram' <li>");
+    }
+
+    // Extract the text and parse as float
+    let priceStr = await page.evaluate((el) => el.innerText, priceElem);
+    priceStr = priceStr.trim().replace(",", ".");
     const price = parseFloat(priceStr);
     if (isNaN(price)) {
       throw new Error("Could not parse gold price");
     }
+
     goldPrice = price;
     console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
   } catch (err) {
     console.error("Error fetching gold price:", err.message);
-    // Use previously cached value, or fall back to default if not set
+    // If goldPrice is not set, default to 92.67
     if (!goldPrice) {
       goldPrice = 92.67;
     }
@@ -105,8 +101,8 @@ async function updateGoldPrice() {
       `Falling back to latest known gold price: ${goldPrice.toFixed(2)} USD`
     );
   } finally {
-    if (driver) {
-      await driver.quit();
+    if (browser) {
+      await browser.close();
     }
   }
 }
