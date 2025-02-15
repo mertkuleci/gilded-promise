@@ -29,7 +29,7 @@ cd gilded-promise
 
 
 ## 2. Install Dependencies
-This project uses Yarn. (If you prefer npm, adjust accordingly and remove conflicting lockfiles.)
+This project uses Yarn. 
 
 yarn install
 
@@ -44,7 +44,9 @@ The backend will listen on process.env.PORT || 3001. You can then access the API
 
 ## 4. Frontend
 Start the frontend server:
+
 node frontend-server.js
+
 The frontend is part of the same repository. When deployed, it is served from Render.
 
 # Deployment
@@ -76,4 +78,5 @@ This project is licensed under the MIT License.
 Playwright: For the headless browser automation and scraping capabilities.
 Kitco: For providing the live gold price data.
 Render: For hosting the application.
-This README explains how to clone, install, run locally, and use the deployed version of the project. Adjust any details as needed for your final submission.
+
+İbrahim Mert Kuleci
