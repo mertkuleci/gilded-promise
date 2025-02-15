@@ -1,13 +1,13 @@
 # Use the official Playwright image with Ubuntu Focal (includes all browser dependencies)
 FROM mcr.microsoft.com/playwright:focal
 
-# Set working directory
+# Set the working directory
 WORKDIR /app
 
-# Copy package.json and yarn.lock to leverage caching
-COPY package.json yarn.lock ./
+# Copy package.json (remove yarn.lock if not present)
+COPY package.json ./
 
-# Install dependencies
+# Install dependencies using Yarn
 RUN yarn install --frozen-lockfile
 
 # Copy the rest of the application code

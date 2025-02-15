@@ -90,6 +90,7 @@ async function updateGoldPrice() {
     console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
   } catch (err) {
     console.error("Error fetching gold price:", err.message);
+    // Use previously cached value, or fall back to default if not set
     if (!goldPrice) {
       goldPrice = 92.67;
     }
