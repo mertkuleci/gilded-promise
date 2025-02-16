@@ -15,6 +15,8 @@ const cors = require("cors");
 const path = require("path");
 const products = require("./products.json"); // Your product data file
 const { chromium } = require("playwright");
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,53 +32,38 @@ let goldPrice = 0;
  * and extracts the gold price from the h3 element.
  * Retries up to 3 times before falling back.
  */
+
 async function updateGoldPrice() {
-  let browser;
-  const maxRetries = 3;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      browser = await chromium.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-      const context = await browser.newContext();
-      const page = await context.newPage();
-
-      // Navigate to the GoldAvenue gold price page
-      await page.goto("https://www.goldavenue.com/en/gold-price/usd", {
-        waitUntil: "domcontentloaded",
+  try {
+    const response = await axios.get(
+      "https://www.goldavenue.com/en/gold-price/usd",
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        },
         timeout: 30000,
-      });
-
-      // Wait for the target h3 element that displays the gold price
-      const priceElem = await page.waitForSelector("h3.sc-8fad5955-0.jwMhFP", {
-        timeout: 15000,
-      });
-      let priceStr = await priceElem.innerText();
-      // Remove the "$" sign and any surrounding whitespace
-      priceStr = priceStr.replace("$", "").trim();
-      const price = parseFloat(priceStr);
-      if (isNaN(price)) {
-        throw new Error("Could not parse gold price from GoldAvenue");
       }
-      goldPrice = price;
-      console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
-      return; // Success; exit retry loop
-    } catch (err) {
-      console.error(`Attempt ${attempt} failed: ${err.message}`);
-      if (attempt === maxRetries) {
-        if (!goldPrice) {
-          goldPrice = 92.67;
-        }
-        console.warn(
-          `Falling back to latest known gold price: ${goldPrice.toFixed(2)} USD`
-        );
-      }
-    } finally {
-      if (browser) {
-        await browser.close();
-      }
+    );
+    const $ = cheerio.load(response.data);
+    // Select the first <h3> element with class "sc-8fad5955-0 jwMhFP"
+    const priceText = $("h3.sc-8fad5955-0.jwMhFP").first().text();
+    // Remove the "$" and trim whitespace
+    let priceStr = priceText.replace("$", "").trim();
+    const price = parseFloat(priceStr);
+    if (isNaN(price)) {
+      throw new Error("Could not parse gold price from GoldAvenue");
     }
+    goldPrice = price;
+    console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
+  } catch (err) {
+    console.error("Error fetching gold price:", err.message);
+    if (!goldPrice) {
+      goldPrice = 92.67;
+    }
+    console.warn(
+      `Falling back to latest known gold price: ${goldPrice.toFixed(2)} USD`
+    );
   }
 }
 
