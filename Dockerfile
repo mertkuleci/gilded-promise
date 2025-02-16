@@ -1,4 +1,4 @@
-# Use the official Playwright image with Ubuntu Focal
+# Dockerfile for building and running our Node/Express app
 FROM mcr.microsoft.com/playwright:focal
 
 WORKDIR /app
@@ -11,4 +11,4 @@ COPY . .
 
 EXPOSE 3001
 
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

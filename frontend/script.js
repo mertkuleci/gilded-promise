@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function renderProducts(products) {
     const carouselNav = document.querySelector(".carousel-nav");
     productContainer.innerHTML = "";
+
     if (products.length === 0) {
       carouselNav.style.display = "none";
       productContainer.innerHTML = `<div class="no-products">No products found matching your criteria.</div>`;
@@ -42,6 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       carouselNav.style.display = "flex";
     }
+
     products.forEach((product) => {
       const card = document.createElement("div");
       card.className = "product-card";
@@ -67,6 +69,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
       `;
 
+      // Color picker logic
       const colorButtons = card.querySelectorAll(".color-picker button");
       const imageEl = card.querySelector(".product-image");
       const colorLabel = card.querySelector(".product-color-label");
@@ -89,18 +92,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     showLoading();
     let query = "";
     const params = new URLSearchParams();
+
     if (filters.minPrice) params.append("minPrice", filters.minPrice);
     if (filters.maxPrice) params.append("maxPrice", filters.maxPrice);
     if (filters.minRating) params.append("minRating", filters.minRating);
     if (filters.maxRating) params.append("maxRating", filters.maxRating);
     if (filters.sortBy) params.append("sortBy", filters.sortBy);
+
     if ([...params].length > 0) {
       query = "?" + params.toString();
     }
+
     try {
-      const response = await fetch(
-        "https://gilded-promise-2.onrender.com/api/products" + query
-      );
+      const response = await fetch("/api/products" + query);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const products = await response.json();
       renderProducts(products);
     } catch (error) {
@@ -113,13 +120,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Initial load
   fetchProducts();
 
-  // Filter button event handler
+  // Filter button
   filterButton.addEventListener("click", () => {
     const minPrice = document.getElementById("minPrice").value;
     const maxPrice = document.getElementById("maxPrice").value;
     const minRating = document.getElementById("minRating").value;
     const maxRating = document.getElementById("maxRating").value;
     const sortBy = document.getElementById("orderBy").value;
+
     const filters = {
       minPrice: minPrice || undefined,
       maxPrice: maxPrice || undefined,
