@@ -1,20 +1,20 @@
-# Use the official Playwright image with Ubuntu Focal (includes all browser dependencies)
+# Use the official Playwright image with Ubuntu Focal (includes all necessary dependencies)
 FROM mcr.microsoft.com/playwright:focal
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy package.json (remove yarn.lock if not present)
+# Copy package.json
 COPY package.json ./
 
-# Install dependencies using Yarn
-RUN yarn install --frozen-lockfile
+# Install dependencies using npm
+RUN npm install
 
-# Copy the rest of the application code
+# Copy the rest of the code
 COPY . .
 
-# Expose the port (make sure your app listens on process.env.PORT || 3001)
+# Expose the port (ensure server.js listens on process.env.PORT || 3001)
 EXPOSE 3001
 
-# Start the application
+# Start the server
 CMD ["node", "server.js"]
