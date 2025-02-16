@@ -26,7 +26,9 @@ app.use(express.static(path.join(__dirname, "frontend")));
 let goldPrice = 0;
 
 /**
- * Uses Playwright with a retry loop to fetch and update the gold price.
+ * Uses Playwright to launch a headless browser, navigates to Kitco's gold charts page,
+ * finds the list item containing "gram", and extracts the gold price.
+ * Uses a retry mechanism for robustness.
  */
 async function updateGoldPrice() {
   let browser;
@@ -45,38 +47,41 @@ async function updateGoldPrice() {
         timeout: 30000,
       });
 
-      // Use a more specific locator: find li.flex.items-center that has a <p> with the target class
-      const locator = page.locator(
-        "li.flex.items-center:has(p.CommodityPrice_priceName__Ehicd)"
-      );
-      await locator.first().waitFor({ state: "visible", timeout: 15000 });
+      // Wait for li elements that match the base selector
+      await page.waitForSelector("li.flex.items-center", { timeout: 15000 });
+      const liElements = await page.$$("li.flex.items-center");
 
-      const count = await locator.count();
-      let targetElement = null;
-      for (let i = 0; i < count; i++) {
-        const el = locator.nth(i);
+      let targetHandle = null;
+      // Loop over li elements to find one where a child <p> with class "CommodityPrice_priceName__Ehicd"
+      // contains "gram" (case-insensitive)
+      for (const li of liElements) {
         try {
-          const priceName = await el
-            .locator("p.CommodityPrice_priceName__Ehicd")
-            .innerText();
-          if (priceName.toLowerCase().includes("gram")) {
-            targetElement = el;
+          const priceNameEl = await li.$("p.CommodityPrice_priceName__Ehicd");
+          if (!priceNameEl) continue;
+          const priceName = (await priceNameEl.innerText()).toLowerCase();
+          if (priceName.includes("gram")) {
+            targetHandle = li;
             break;
           }
-        } catch (err) {
-          // ignore errors and continue
+        } catch (e) {
+          // Skip errors
         }
       }
 
-      if (!targetElement) {
-        throw new Error("Target element containing 'gram' not found");
+      if (!targetHandle) {
+        throw new Error("Could not locate target element containing 'gram'");
       }
 
-      // Extract the price from the corresponding price element
-      const priceElem = targetElement.locator(
-        "p.CommodityPrice_convertPrice__5Addh"
+      // Use a more specific selector to avoid multiple matches.
+      // We exclude any <p> that has the "CommodityPrice_down__WC3cT" class.
+      const priceElem = await targetHandle.$(
+        "p.CommodityPrice_convertPrice__5Addh:not(.CommodityPrice_down__WC3cT)"
       );
-      await priceElem.waitFor({ state: "visible", timeout: 10000 });
+      if (!priceElem) {
+        throw new Error(
+          "Could not find the correct price element in the target <li>"
+        );
+      }
       let priceStr = await priceElem.innerText();
       priceStr = priceStr.trim().replace(",", "."); // Convert comma to dot
       const price = parseFloat(priceStr);
@@ -85,7 +90,7 @@ async function updateGoldPrice() {
       }
       goldPrice = price;
       console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
-      return; // Successful update; exit the retry loop
+      return; // Successful; exit the retry loop
     } catch (err) {
       console.error(`Attempt ${attempt} failed: ${err.message}`);
       if (attempt === maxRetries) {
@@ -114,6 +119,7 @@ async function startServer() {
   app.get("/api/products", (req, res) => {
     const { minPrice, maxPrice, minRating, maxRating, sortBy } = req.query;
     let result = products.map((product) => {
+      // Price formula: (popularityScore + 1) * weight * goldPrice
       const computedPrice =
         (product.popularityScore + 1) * product.weight * goldPrice;
       const rating = (product.popularityScore * 5).toFixed(1);
@@ -143,7 +149,7 @@ async function startServer() {
     res.json(result);
   });
 
-  // Serve frontend for any other route
+  // Serve the frontend for any unknown route
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "frontend", "index.html"));
   });
