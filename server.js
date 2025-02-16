@@ -1,3 +1,15 @@
+/****************************************************************************
+ * server.js
+ * --------------------------------------------------------------------------
+ * Merged Node/Express server that:
+ * - Uses Playwright to scrape the live gold price (USD per gram) from Kitco.
+ * - Caches the gold price and updates it every 1 minute (with retries).
+ * - Calculates product prices using the cached gold price.
+ * - Serves the frontend static files and exposes an API endpoint (/api/products)
+ *   with filtering and ordering.
+ *
+ * Note: Product prices are rounded to the nearest whole number.
+ ****************************************************************************/
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -13,9 +25,13 @@ app.use(express.static(path.join(__dirname, "frontend")));
 // Global variable to store the latest gold price per gram in USD
 let goldPrice = 0;
 
-async function fetchGoldPriceWithRetry(retries = 3) {
+/**
+ * Uses Playwright with a retry loop to fetch and update the gold price.
+ */
+async function updateGoldPrice() {
   let browser;
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       browser = await chromium.launch({
         headless: true,
@@ -24,43 +40,43 @@ async function fetchGoldPriceWithRetry(retries = 3) {
       const context = await browser.newContext();
       const page = await context.newPage();
 
-      // Navigate with a shorter timeout and wait until DOMContentLoaded
       await page.goto("https://www.kitco.com/charts/gold", {
         waitUntil: "domcontentloaded",
         timeout: 30000,
       });
 
-      // Wait for list items to appear
-      await page.waitForSelector("li.flex.items-center", { timeout: 15000 });
-      const liElements = await page.$$("li.flex.items-center");
+      // Use a more specific locator: find li.flex.items-center that has a <p> with the target class
+      const locator = page.locator(
+        "li.flex.items-center:has(p.CommodityPrice_priceName__Ehicd)"
+      );
+      await locator.first().waitFor({ state: "visible", timeout: 15000 });
 
-      let targetHandle = null;
-      // Loop to find the <li> with a <p> whose text contains "gram"
-      for (const li of liElements) {
+      const count = await locator.count();
+      let targetElement = null;
+      for (let i = 0; i < count; i++) {
+        const el = locator.nth(i);
         try {
-          const priceNameEl = await li.$("p.CommodityPrice_priceName__Ehicd");
-          if (!priceNameEl) continue;
-          const priceName = (await priceNameEl.innerText()).toLowerCase();
-          if (priceName.includes("gram")) {
-            targetHandle = li;
+          const priceName = await el
+            .locator("p.CommodityPrice_priceName__Ehicd")
+            .innerText();
+          if (priceName.toLowerCase().includes("gram")) {
+            targetElement = el;
             break;
           }
-        } catch (e) {
-          continue;
+        } catch (err) {
+          // ignore errors and continue
         }
       }
 
-      if (!targetHandle) {
-        throw new Error("Target element not found");
+      if (!targetElement) {
+        throw new Error("Target element containing 'gram' not found");
       }
 
-      // Extract price from the designated <p> element
-      const priceElem = await targetHandle.$(
+      // Extract the price from the corresponding price element
+      const priceElem = targetElement.locator(
         "p.CommodityPrice_convertPrice__5Addh"
       );
-      if (!priceElem) {
-        throw new Error("Price element not found");
-      }
+      await priceElem.waitFor({ state: "visible", timeout: 10000 });
       let priceStr = await priceElem.innerText();
       priceStr = priceStr.trim().replace(",", "."); // Convert comma to dot
       const price = parseFloat(priceStr);
@@ -69,10 +85,10 @@ async function fetchGoldPriceWithRetry(retries = 3) {
       }
       goldPrice = price;
       console.log(`Gold price per gram updated: ${goldPrice.toFixed(2)} USD`);
-      return; // Success;
+      return; // Successful update; exit the retry loop
     } catch (err) {
       console.error(`Attempt ${attempt} failed: ${err.message}`);
-      if (attempt === retries) {
+      if (attempt === maxRetries) {
         if (!goldPrice) {
           goldPrice = 92.67;
         }
@@ -81,29 +97,25 @@ async function fetchGoldPriceWithRetry(retries = 3) {
         );
       }
     } finally {
-      if (browser) await browser.close();
+      if (browser) {
+        await browser.close();
+      }
     }
   }
 }
 
-async function updateGoldPrice() {
-  await fetchGoldPriceWithRetry();
-}
-
+// Start by updating the gold price once before starting the server,
+// then schedule updates every 1 minute.
 async function startServer() {
-  // Wait for the initial gold price update
   await updateGoldPrice();
-  // Schedule subsequent updates every 1 minute
   setInterval(updateGoldPrice, 60000);
 
-  // API endpoint for products
+  // API Endpoint: /api/products
   app.get("/api/products", (req, res) => {
     const { minPrice, maxPrice, minRating, maxRating, sortBy } = req.query;
     let result = products.map((product) => {
-      // Price formula: (popularityScore + 1) * weight * goldPrice
       const computedPrice =
         (product.popularityScore + 1) * product.weight * goldPrice;
-      // Convert popularityScore (0–1) to rating out of 5
       const rating = (product.popularityScore * 5).toFixed(1);
       return {
         ...product,
@@ -111,8 +123,6 @@ async function startServer() {
         rating: parseFloat(rating),
       };
     });
-
-    // Apply filtering
     if (minPrice)
       result = result.filter((p) => p.price >= parseFloat(minPrice));
     if (maxPrice)
@@ -121,8 +131,6 @@ async function startServer() {
       result = result.filter((p) => p.rating >= parseFloat(minRating));
     if (maxRating)
       result = result.filter((p) => p.rating <= parseFloat(maxRating));
-
-    // Apply ordering
     if (sortBy) {
       if (sortBy === "price") {
         result.sort((a, b) => a.price - b.price);
@@ -132,11 +140,10 @@ async function startServer() {
         result.sort((a, b) => b.rating / b.price - a.rating / a.price);
       }
     }
-
     res.json(result);
   });
 
-  // Serve frontend for any other routes
+  // Serve frontend for any other route
   app.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, "frontend", "index.html"));
   });
