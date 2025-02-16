@@ -1,14 +1,3 @@
-/****************************************************************************
- * server.js
- * --------------------------------------------------------------------------
- * Single Node/Express server that:
- * - Uses axios and Cheerio to scrape the live gold price (USD per gram)
- * - Caches the gold price and updates it every 1 minute
- * - Calculates product prices using the cached gold price
- * - Serves the static frontend files
- * - Exposes an API endpoint (/api/products) with filtering and ordering
- ****************************************************************************/
-
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -25,11 +14,6 @@ app.use(cors({ origin: "*" }));
 // ---- Gold Price ---- //
 let goldPrice = 0;
 
-/**
- * Uses axios and Cheerio to scrape the gold price from Kitco.
- * It looks for the <li> element with "gram" in its price name, then
- * extracts the price from the corresponding <p> with the price class.
- */
 async function updateGoldPrice() {
   try {
     const response = await axios.get("https://www.kitco.com/charts/gold", {
@@ -83,7 +67,6 @@ async function updateGoldPrice() {
   }
 }
 
-// Call once at startup, then every minute
 updateGoldPrice();
 setInterval(updateGoldPrice, 60000);
 
