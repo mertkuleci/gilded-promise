@@ -30,25 +30,18 @@ cd gilded-promise
 
 
 ## 2. Install Dependencies
-This project uses Yarn. 
 
-yarn install
+npm install
 
 A postinstall script automatically runs npx playwright install to download the required browser binaries for Playwright.
 
 ## 3. Running the Project Locally
-Start the backend server:
+Start the backend and frontend at the same time:
 
-node server.js
+npm start
 
-The backend will listen on process.env.PORT || 3001. You can then access the API endpoints locally (for example, by visiting http://localhost:3001/api/products).
+It will listen on process.env.PORT || 3001. You can then access the API endpoints locally (for example, by visiting http://localhost:3001/api/products).
 
-## 4. Frontend
-Start the frontend server:
-
-node frontend-server.js
-
-The frontend is part of the same repository. When deployed, it is served from Render.
 
 # Deployment
 This project is deployed using Docker on Render. The Dockerfile uses the official Playwright image which includes all necessary browser dependencies.
